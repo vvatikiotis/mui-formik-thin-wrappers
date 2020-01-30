@@ -1,56 +1,151 @@
 import React from 'react';
 import { FieldProps } from 'formik';
 import TextField, { TextFieldProps } from '@material-ui/core/TextField';
-import {
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectProps,
-  FormLabel,
-  FormControlLabel,
-  RadioGroup,
-  Radio,
-  FormGroup,
-  Checkbox,
-  RadioGroupProps,
-  FormGroupProps,
-  Switch,
-  Slider,
-  SliderProps,
-} from '@material-ui/core';
+import FormControl, { FormControlProps } from '@material-ui/core/FormControl';
+import InputLabel, { InputLabelProps } from '@material-ui/core/InputLabel';
+import Select, { SelectProps } from '@material-ui/core/Select';
+import MenuItem from '@material-ui/core/MenuItem';
+import FormLabel, { FormLabelProps } from '@material-ui/core/FormLabel';
+import FormControlLabel, {
+  FormControlLabelProps,
+} from '@material-ui/core/FormControlLabel';
+import RadioGroup, { RadioGroupProps } from '@material-ui/core/RadioGroup';
+import Radio from '@material-ui/core/Radio';
+import FormGroup, { FormGroupProps } from '@material-ui/core/FormGroup';
+import Checkbox from '@material-ui/core/Checkbox';
+import Switch from '@material-ui/core/Switch';
+import Input from '@material-ui/core/Input';
+import FormHelperText, {
+  FormHelperTextProps,
+} from '@material-ui/core/FormHelperText';
+import Slider, { SliderProps } from '@material-ui/core/Slider';
+import ReactNumberFormat, { NumberFormatProps } from 'react-number-format';
 // import invariant from 'tiny-warning';
 
-// interface IProps extends FieldProps, TextFieldProps {
-
-// }
-
-/**
- * Thin wrapper around MUI TextField
- */
+// Thin wrapper around MUI TextField
 export const TextFormField: React.FC<FieldProps & TextFieldProps> = ({
   field,
   form,
   ...props
 }) => {
   const { errors, touched } = form;
-  const errorText = touched && errors[field.name];
-  // console.log('TextFormField', { field, props });
+  const { name } = field;
+  const errorText = touched[name] && errors[name];
 
   return (
     <TextField
-      error={!!errorText}
-      helperText={!!errorText ? errorText : null}
+      id={name}
       {...props}
       {...field}
+      error={!!errorText}
+      helperText={!!errorText ? errorText : null}
+    />
+  );
+};
+interface INumberFormatWrapperProps extends NumberFormatProps {
+  name: string;
+  setFieldValue: (name: string, value: any) => void;
+}
+
+const NumberFormat: React.FC<INumberFormatWrapperProps> = ({
+  name,
+  setFieldValue,
+  ...props
+}) => {
+  // NOTE: we don't use the onChange handler since this gets the formatted value
+  // (including prefixes, signs etc). However we need the "raw" value (value or
+  // floatValue), so we use onValueChange
+
+  return (
+    <ReactNumberFormat
+      {...props}
+      name={name}
+      value={props.value}
+      onValueChange={({ value, floatValue }) => {
+        const rawValue = props.isNumericString ? value : floatValue;
+        setFieldValue(name, rawValue);
+      }}
     />
   );
 };
 
-interface ISelectFormField extends FieldProps, SelectProps {
+interface INumberFormField extends FieldProps {
+  label?: string | React.ReactNode;
+  required?: boolean;
+  inputLabelProps?: InputLabelProps;
+  formControlProps?: FormControlProps;
+  formHelperTextProps?: FormHelperTextProps;
+  reactNumberFormatProps?: NumberFormatProps;
+}
+// Thin wrapper around  NumberFormField
+export const NumberFormField: React.FC<INumberFormField> = ({
+  field,
+  form,
+  label,
+  required = false,
+  inputLabelProps = {},
+  formControlProps = {},
+  formHelperTextProps = {},
+  reactNumberFormatProps = {},
+  ...props
+}) => {
+  const defaultReactNumberFormatProps = {
+    allowNegative: false,
+    decimalScale: 2,
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    allowEmptyFormatting: false,
+    isNumericString: false,
+  };
+  const { errors, touched } = form;
+  const { name, value } = field;
+  const errorText = touched[name] && errors[name];
+  const emptyValue = value === '' || value === undefined || value === null;
+
+  const _rnfProps = {
+    ...defaultReactNumberFormatProps,
+    ...reactNumberFormatProps,
+    name,
+    setFieldValue: form.setFieldValue,
+    value: field.value,
+  };
+
+  return (
+    <FormControl {...formControlProps} error={!!errorText}>
+      {label && (
+        <InputLabel
+          {...inputLabelProps}
+          error={!!errorText}
+          htmlFor={name}
+          shrink={!emptyValue}
+          required={required}
+        >
+          {label}
+        </InputLabel>
+      )}
+      <Input
+        id={name}
+        inputComponent={() => <NumberFormat {..._rnfProps} />}
+        {...props}
+        {...field}
+        onChange={() => {}} // NOTE: we mask Formik's onChange since we use setFieldValue
+        error={!!errorText}
+      />
+
+      {errorText && (
+        <FormHelperText {...formHelperTextProps} error>
+          {!!errorText ? errorText : null}
+        </FormHelperText>
+      )}
+    </FormControl>
+  );
+};
+
+interface ISelectFormFieldProps extends FieldProps, SelectProps {
   label?: string | React.ReactNode;
   formControlProps?: object;
   inputLabelProps?: object;
+  formHelperTextProps?: object;
   options?: Array<{ label: string; value: string }>;
 }
 
@@ -61,18 +156,22 @@ interface ISelectFormField extends FieldProps, SelectProps {
  *    <Select />
  * </FormControl>
  */
-export const SelectFormField: React.FC<ISelectFormField> = ({
+export const SelectFormField: React.FC<ISelectFormFieldProps> = ({
   field,
   form,
-  formControlProps = {},
-  inputLabelProps = {},
   label,
+  required = false,
   options,
   children,
+  formControlProps = {},
+  inputLabelProps = {},
+  formHelperTextProps = {},
   ...props
 }) => {
   const { errors, touched } = form;
-  const errorText = touched && errors[field.name];
+  const { name, value } = field;
+  const errorText = touched[name] && errors[name];
+  const emptyValue = value === '' || value === undefined || value === null;
 
   if (children && options) {
     throw new Error(
@@ -80,31 +179,51 @@ export const SelectFormField: React.FC<ISelectFormField> = ({
     );
   }
 
-  // we render children as is, we map options to MenuItems
   let inner;
   if (children && !options) inner = children;
   else if (!children && options)
-    inner = options.map(o => (
-      <MenuItem key={o.value} value={o.value}>
-        {o.label}
-      </MenuItem>
-    ));
+    inner = options.map(option => {
+      const { label, value, ...restMenuItem } = option;
+
+      return (
+        <MenuItem value={value} {...restMenuItem} key={value}>
+          {label}
+        </MenuItem>
+      );
+    });
 
   return (
     <FormControl {...formControlProps} error={!!errorText}>
-      {label && <InputLabel {...inputLabelProps}>{label}</InputLabel>}
-      <Select {...props} {...field}>
+      {label && (
+        <InputLabel
+          {...inputLabelProps}
+          htmlFor={name}
+          required={required}
+          shrink={!emptyValue}
+        >
+          {label}
+        </InputLabel>
+      )}
+      <Select id={name} {...props} {...field}>
         {inner}
       </Select>
+
+      {errorText && (
+        <FormHelperText {...formHelperTextProps} error>
+          {!!errorText ? errorText : null}
+        </FormHelperText>
+      )}
     </FormControl>
   );
 };
 
-interface IRadioGroupFormField extends FieldProps, RadioGroupProps {
+interface IRadioGroupFormFieldProps extends FieldProps, RadioGroupProps {
   label?: string | React.ReactNode;
-  formControlProps?: object;
-  formLabelProps?: object;
+  required?: boolean;
   group?: Array<{ value: string; label: string; disabled?: boolean }>;
+  formLabelProps?: FormLabelProps;
+  formControlProps?: FormControlProps;
+  formHelperTextProps?: FormHelperTextProps;
 }
 
 /**
@@ -114,16 +233,22 @@ interface IRadioGroupFormField extends FieldProps, RadioGroupProps {
  *    <RadioGroup />
  * </FormControl>
  */
-export const RadioGroupFormField: React.FC<IRadioGroupFormField> = ({
+export const RadioGroupFormField: React.FC<IRadioGroupFormFieldProps> = ({
   field,
   form,
   label,
-  formControlProps = {},
-  formLabelProps = {},
+  required = false,
   children,
   group,
+  formControlProps = {},
+  formLabelProps = {},
+  formHelperTextProps = {},
   ...props
 }) => {
+  const { errors, touched } = form;
+  const { name } = field;
+  const errorText = touched[name] && errors[name];
+
   if (children && group) {
     throw new Error(
       'RadioGroupFormField() :: cannot specify both `children` and `group`'
@@ -143,26 +268,44 @@ export const RadioGroupFormField: React.FC<IRadioGroupFormField> = ({
       />
     ));
 
-  // console.log({ field });
+  // Workaround because TS barfs on this
+  const _formControlProps = {
+    component: 'fieldset',
+    ...formControlProps,
+  };
+
+  const _formLabelProps = {
+    component: 'legend',
+    ...formLabelProps,
+  };
+
   return (
-    <FormControl component="fieldset" {...formControlProps}>
+    <FormControl {..._formControlProps} error={!!errorText}>
       {label && (
-        <FormLabel component="legend" {...formLabelProps}>
+        <FormLabel {..._formLabelProps} required={required}>
           {label}
         </FormLabel>
       )}
       <RadioGroup {...props} {...field}>
         {inner}
       </RadioGroup>
+
+      {errorText && (
+        <FormHelperText {...formHelperTextProps} error>
+          {!!errorText ? errorText : null}
+        </FormHelperText>
+      )}
     </FormControl>
   );
 };
 
-interface ICheckboxGroupFormField extends FieldProps, FormGroupProps {
+interface ICheckboxGroupFormFieldProps extends FieldProps, FormGroupProps {
   label?: string | React.ReactNode;
-  formControlProps?: object;
-  formLabelProps?: object;
+  required?: boolean;
   group?: Array<{ value: string; label: string; disabled?: boolean }>;
+  formControlProps?: FormControlProps;
+  formLabelProps?: FormLabelProps;
+  formHelperTextProps?: FormHelperTextProps;
 }
 /**
  * Composite component: wrapper around MUI FormGroup
@@ -174,18 +317,22 @@ interface ICheckboxGroupFormField extends FieldProps, FormGroupProps {
  *  *    </FormGroup>
  * </FormControl>
  */
-export const CheckboxGroupFormField: React.FC<ICheckboxGroupFormField> = ({
+export const CheckboxGroupFormField: React.FC<ICheckboxGroupFormFieldProps> = ({
   field,
   form,
   label,
-  formControlProps = {},
-  formLabelProps = {},
+  required = false,
   children,
   group,
+  formControlProps = {},
+  formLabelProps = {},
+  formHelperTextProps = {},
   ...props
 }) => {
-  // const { errors, touched } = form;
-  console.log('====', { field, children });
+  const { errors, touched } = form;
+  const { name } = field;
+  const errorText = touched[name] && errors[name];
+
   if (children && group) {
     throw new Error(
       'CheckboxGroupFormField() :: cannot specify both `children` and `group`'
@@ -199,7 +346,7 @@ export const CheckboxGroupFormField: React.FC<ICheckboxGroupFormField> = ({
     inner = group.map((item, index) => {
       return (
         <FormControlLabel
-          key={`${item}-${index}`}
+          key={`${item.value}-${index}`}
           label={item.label}
           control={
             <Checkbox
@@ -213,28 +360,46 @@ export const CheckboxGroupFormField: React.FC<ICheckboxGroupFormField> = ({
       );
     });
 
+  // Workaround because TS barfs on this
+  const _formControlProps = {
+    component: 'fieldset',
+    ...formControlProps,
+  };
+
+  const _formLabelProps = {
+    component: 'legend',
+    ...formLabelProps,
+  };
+
   return (
-    <FormControl component="fieldset" {...formControlProps}>
+    <FormControl {..._formControlProps} error={!!errorText}>
       {label && (
-        <FormLabel component="legend" {...formLabelProps}>
+        <FormLabel {..._formLabelProps} required={required}>
           {label}
         </FormLabel>
       )}
       <FormGroup {...props}>{inner}</FormGroup>
+
+      {errorText && (
+        <FormHelperText {...formHelperTextProps} error>
+          {!!errorText ? errorText : null}
+        </FormHelperText>
+      )}
     </FormControl>
   );
 };
 
-interface ISwitchFormField extends FieldProps {
+interface ISwitchFormFieldProps extends FieldProps {
   label?: string | React.ReactNode;
-  formControlLabelProps?: object;
+  formControlLabelProps?: FormControlLabelProps;
 }
 
-export const SwitchFormField: React.FC<ISwitchFormField> = ({
+// Thin wrapper around SwitchFormField
+export const SwitchFormField: React.FC<ISwitchFormFieldProps> = ({
   field,
   form,
   label,
-  formControlLabelProps,
+  formControlLabelProps = {},
   ...props
 }) => {
   return (
@@ -246,6 +411,7 @@ export const SwitchFormField: React.FC<ISwitchFormField> = ({
   );
 };
 
+// Thin wrapper around SliderFormField
 export const SliderFormField: React.FC<FieldProps & SliderProps> = ({
   field,
   form,
