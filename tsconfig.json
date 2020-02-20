@@ -21,10 +21,11 @@
     "noFallthroughCasesInSwitch": true,
     "moduleResolution": "node",
     "baseUrl": "./",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "paths": {
-      "*": ["src/*", "node_modules/*"]
+      "*": ["src/*", "node_modules/*", "example/*"]
     },
-    "jsx": "react",
-    "esModuleInterop": true
+    "jsx": "react"
   }
 }

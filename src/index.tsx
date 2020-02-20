@@ -42,6 +42,7 @@ export const TextFormField: React.FC<FieldProps & TextFieldProps> = ({
     />
   );
 };
+
 interface INumberFormatWrapperProps extends NumberFormatProps {
   name: string;
   setFieldValue: (name: string, value: any) => void;

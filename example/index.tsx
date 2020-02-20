@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent } from 'react';
+import React from 'react';
 import { render } from 'react-dom';
 import { Formik, Form, Field, FieldArrayConfig, FieldProps } from 'formik';
 import {
@@ -140,7 +140,7 @@ const First: React.FC<IProps> = ({ title, ...props }) => {
         marks
         min={0}
         max={100}
-        onChange={(e: ChangeEvent<{}>, value: number | number[]) =>
+        onChange={(e: React.ChangeEvent<{}>, value: number | number[]) =>
           setTemp(value as number)
         }
       />
